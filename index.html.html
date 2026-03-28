@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ગુજ. પંચાંગ">
+<meta name="theme-color" content="#0C0A08">
+<meta name="description" content="Gujarati Panchang — Daily Hindu calendar with tithi, choghadiya, festivals and auspicious times.">
+<title>ગુજ. પંચાંગ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rasa:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   TOKENS
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --ink:      #0C0A08;
+  --s1:       #161210;
+  --s2:       #1E1A16;
+  --s3:       #28221C;
+
+  --hi:   #EDE8E1;
+  --mid:  #9A9088;
+  --lo:   #58524C;
+
+  --ember:    #BF440A;
+  --ember-hi: #D95510;
+  --ember-lo: rgba(191,68,10,0.12);
+  --ember-bd: rgba(191,68,10,0.22);
+
+  --gold:     #9A7220;
+  --gold-hi:  #C09030;
+  --gold-lo:  rgba(154,114,32,0.10);
+  --gold-bd:  rgba(154,114,32,0.20);
+
+  --green:    #2E8A50;
+  --green-lo: rgba(46,138,80,0.10);
+  --green-bd: rgba(46,138,80,0.20);
+
+  --danger:   #B83030;
+  --danger-lo:rgba(184,48,48,0.09);
+
+  --sf:  -apple-system,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  --gu:  'Rasa',serif;
+  --num: 'Cormorant Garamond',Georgia,serif;
+
+  --t: 0.28s cubic-bezier(0.22,1,0.36,1);
+
+  /* Safe area insets for notch / Dynamic Island */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+::selection { background:var(--ember); color:#fff; }
+html { height:100%; }
+
+body {
+  height:100%;
+  background: var(--ink);
+  font-family: var(--sf);
+  color: var(--hi);
+  overflow: hidden; /* app shell — no body scroll */
+  /* Warm noise texture */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* Ambient top glow */
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background: radial-gradient(ellipse 80% 36% at 50% 0%, rgba(191,68,10,.10) 0%, transparent 60%);
+}
+
+button { border:none; cursor:pointer; background:none; font-family:inherit; color:inherit; }
+
+/* ═══════════════════════════════════════════════════════════
+   APP SHELL — FILLS FULL SCREEN
+   ═══════════════════════════════════════════════════════════ */
+#app {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  /* respect notch + home indicator */
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+  z-index: 1;
+  max-width: 430px; /* caps at iPhone max width on tablet */
+  margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLABLE CONTENT AREA
+   ═══════════════════════════════════════════════════════════ */
+#scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+#scroll::-webkit-scrollbar { display: none; }
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM NAV — FIXED, SAFE-AREA-AWARE
+   ═══════════════════════════════════════════════════════════ */
+#nav {
+  display: flex;
+  background: rgba(12,10,8,0.97);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  flex-shrink: 0;
+}
+.bn {
+  flex: 1; display:flex; flex-direction:column;
+  align-items:center; gap:3px;
+  padding: 6px 0; cursor:pointer;
+  transition: opacity var(--t);
+  -webkit-user-select: none; user-select: none;
+}
+.bn:active { opacity:.6; }
+.bn-ico { font-size:22px; color:var(--lo); transition:color var(--t); }
+.bn-lbl { font-family:var(--sf); font-size:10px; font-weight:500; color:var(--lo); transition:color var(--t); letter-spacing:0.1px; }
+.bn.active .bn-ico,
+.bn.active .bn-lbl { color: var(--ember-hi); }
+.bn-dot { width:4px; height:4px; border-radius:50%; background:var(--ember); margin-top:-1px; }
+
+/* ═══════════════════════════════════════════════════════════
+   TAB PANELS
+   ═══════════════════════════════════════════════════════════ */
+.tab { display:none; }
+.tab.active { display:block; }
+
+/* Tab entry animation */
+@keyframes tabIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.tab.active { animation: tabIn .32s cubic-bezier(.22,1,.36,1) both; }
+
+/* ═══════════════════════════════════════════════════════════
+   SHARED COMPONENTS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Section label */
+.sl {
+  font-family:var(--sf); font-size:10px; font-weight:600;
+  color:var(--lo); text-transform:uppercase; letter-spacing:1.4px;
+  display:flex; align-items:center; gap:10px; margin-bottom:11px;
+}
+.sl::before { content:'//'; color:var(--ember); letter-spacing:0; font-size:11px; }
+.sl::after  { content:''; flex:1; height:1px; background:rgba(255,255,255,.05); }
+
+/* Page header shell */
+.ph {
+  padding: 16px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  position: relative;
+}
+.ph::before {
+  content:''; position:absolute; left:20px; top:16px; bottom:16px;
+  width:2px;
+  background: linear-gradient(180deg, var(--ember-hi) 0%, transparent 100%);
+  border-radius:2px;
+}
+.ph-row { display:flex; justify-content:space-between; align-items:flex-start; padding-left:14px; }
+.ph-gu  { font-family:var(--gu); font-size:28px; font-weight:500; color:var(--hi); line-height:1.1; }
+.ph-en  { font-family:var(--sf); font-size:13px; font-weight:400; color:var(--mid); margin-top:4px; }
+.ph-acts { display:flex; gap:8px; }
+.icon-btn {
+  width:36px; height:36px;
+  border:1px solid rgba(255,255,255,.07); border-radius:11px;
+  background:rgba(255,255,255,.04);
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; cursor:pointer;
+  transition: background var(--t);
+}
+.icon-btn:active { background:rgba(255,255,255,.08); }
+
+/* Panchang strip */
+.ps { display:flex; overflow-x:auto; border-bottom:1px solid rgba(255,255,255,.04); scrollbar-width:none; }
+.ps::-webkit-scrollbar { display:none; }
+.pi { display:flex; flex-direction:column; align-items:center; padding:13px 10px; min-width:76px; flex:1; border-right:1px solid rgba(255,255,255,.04); gap:3px; cursor:pointer; }
+.pi:last-child { border-right:none; }
+.pi:active { background:rgba(255,255,255,.03); }
+.pi-k { font-family:var(--sf); font-size:10px; font-weight:500; color:var(--lo); text-transform:uppercase; letter-spacing:.6px; white-space:nowrap; }
+.pi-g { font-family:var(--gu); font-size:18px; font-weight:400; color:var(--ember-hi); text-align:center; line-height:1.35; }
+.pi-e { font-family:var(--sf); font-size:11px; font-weight:400; color:var(--mid); text-align:center; }
+
+/* Month nav */
+.mn { display:flex; align-items:center; padding:12px 18px 10px; border-bottom:1px solid rgba(255,255,255,.04); }
+.mn-arr { width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:var(--lo); font-size:22px; cursor:pointer; border-radius:9px; transition:background var(--t); }
+.mn-arr:active { background:rgba(255,255,255,.05); }
+.mn-c { flex:1; text-align:center; }
+.mn-g { font-family:var(--gu); font-size:20px; font-weight:500; color:var(--hi); line-height:1.1; }
+.mn-e { font-family:var(--sf); font-size:13px; font-weight:400; color:var(--mid); margin-top:3px; }
+
+/* Calendar grid */
+.cg { padding:10px 14px 12px; }
+.wds { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px; }
+.wd { font-family:var(--sf); font-size:11px; font-weight:600; color:var(--lo); text-align:center; padding:3px 0; }
+.wd.sun { color:var(--ember); }
+.dys { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+.dc { aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:10px; cursor:pointer; transition:background var(--t), transform .08s; }
+.dc:not(.e):active { transform:scale(.85); background:rgba(255,255,255,.05); }
+.dc.e { pointer-events:none; }
+.dc.tod { background:var(--ember); box-shadow:0 0 0 1px rgba(191,68,10,.5),0 3px 14px rgba(191,68,10,.3); }
+.dc.tod .dg { color:#fff; font-weight:500; } .dc.tod .ds { color:rgba(255,255,255,.5); } .dc.tod .dd { background:#fff; }
+.dc.sel { background:var(--ember-lo); border:1px solid var(--ember-bd); }
+.dg { font-family:var(--gu); font-size:18px; font-weight:400; color:var(--hi); line-height:1; }
+.dc.sc .dg { color:var(--ember-hi); }
+.dc.fst .dg { color:var(--gold-hi); }
+.ds { font-family:var(--gu); font-size:8px; font-weight:300; color:var(--lo); line-height:1; margin-top:1px; }
+.dd { width:4px; height:4px; border-radius:50%; background:var(--ember); margin-top:2px; }
+
+/* Day detail card */
+.ddc { margin:12px 14px; border:1px solid rgba(255,255,255,.06); border-radius:18px; overflow:hidden; background:rgba(255,255,255,.012); }
+.ddc-h { padding:15px 18px; background:linear-gradient(140deg,rgba(191,68,10,.14),rgba(191,68,10,.03)); border-bottom:1px solid rgba(191,68,10,.14); display:grid; grid-template-columns:1fr auto; gap:10px; }
+.ddc-dt { font-family:var(--num); font-size:34px; font-style:italic; color:var(--hi); font-weight:300; line-height:1; }
+.ddc-sub { font-family:var(--sf); font-size:13px; font-weight:400; color:var(--mid); margin-top:5px; }
+.ddc-r { text-align:right; }
+.ddc-sam { font-family:var(--gu); font-size:13px; font-weight:400; color:var(--gold-hi); }
+.ddc-tgu { font-family:var(--gu); font-size:22px; font-weight:500; color:var(--hi); margin-top:2px; line-height:1.2; }
+.ddc-ten { font-family:var(--sf); font-size:11px; font-weight:400; color:rgba(237,232,225,.4); margin-top:1px; }
+.ddc-b { padding:15px 18px; }
+
+/* Sun/moon */
+.smr { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:14px; }
+.smb { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.055); border-radius:11px; padding:11px 12px; display:flex; align-items:center; gap:9px; }
+.smi { font-size:18px; line-height:1; flex-shrink:0; }
+.smk { font-family:var(--sf); font-size:11px; font-weight:400; color:var(--mid); }
+.smv { font-family:var(--sf); font-size:14px; font-weight:600; color:var(--hi); margin-top:2px; letter-spacing:-.2px; }
+
+/* Panchang detail grid */
+.pdg { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:14px; }
+.pdi { background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.045); border-radius:10px; padding:10px 12px; }
+.pdk { font-family:var(--sf); font-size:10px; font-weight:500; color:var(--lo); letter-spacing:.2px; margin-bottom:4px; }
+.pdg-gu { font-family:var(--gu); font-size:17px; font-weight:400; color:var(--ember-hi); line-height:1.25; }
+.pdg-en { font-family:var(--sf); font-size:11px; font-weight:400; color:var(--mid); margin-top:3px; line-height:1.3; }
+
+/* Rahu bar */
+.rb { display:flex; align-items:center; gap:12px; background:var(--danger-lo); border:1px solid rgba(184,48,48,.18); border-radius:10px; padding:11px 14px; margin-bottom:14px; }
+.rk { font-family:var(--sf); font-size:12px; font-weight:600; color:var(--danger); }
+.rs { font-family:var(--sf); font-size:11px; color:rgba(184,48,48,.6); margin-top:2px; }
+.rt { font-family:var(--sf); font-size:16px; font-weight:700; color:#D04040; margin-top:3px; }
+.rp { margin-left:auto; font-family:var(--sf); font-size:11px; font-weight:600; color:var(--danger); border:1px solid rgba(184,48,48,.25); border-radius:7px; padding:5px 10px; text-transform:uppercase; }
+
+/* Festival card */
+.fc { background:var(--gold-lo); border:1px solid var(--gold-bd); border-radius:13px; padding:14px; display:flex; gap:13px; align-items:flex-start; margin-bottom:4px; position:relative; overflow:hidden; }
+.fc::after { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(180deg,var(--gold-hi),var(--gold)); border-radius:13px 0 0 13px; }
+.fc-ico { font-size:28px; line-height:1; flex-shrink:0; }
+.fc-gu { font-family:var(--gu); font-size:20px; font-weight:500; color:var(--hi); line-height:1.2; }
+.fc-en { font-family:var(--sf); font-size:13px; font-weight:500; color:var(--gold-hi); margin-top:3px; }
+.fc-desc { font-family:var(--sf); font-size:13px; font-weight:400; color:var(--mid); margin-top:7px; line-height:1.65; }
+
+/* Choghadiya grid */
+.chs { padding:0 14px 14px; }
+.chg { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.chi { border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; border:1px solid transparent; cursor:pointer; transition:border-color var(--t); }
+.chi:active { opacity:.75; }
+.chi.am { background:rgba(40,152,88,.08);  border-color:rgba(40,152,88,.16); }
+.chi.sh { background:rgba(48,120,210,.08); border-color:rgba(48,120,210,.16); }
+.chi.la { background:rgba(192,148,28,.08); border-color:rgba(192,148,28,.16); }
+.chi.ch { background:rgba(130,72,192,.08); border-color:rgba(130,72,192,.16); }
+.chi.ka { background:rgba(176,44,44,.08);  border-color:rgba(176,44,44,.16); }
+.chi.ud { background:rgba(24,168,148,.08); border-color:rgba(24,168,148,.16); }
+.chi.ro { background:rgba(188,72,44,.08);  border-color:rgba(188,72,44,.16); }
+.ch-gu { font-family:var(--gu); font-size:16px; font-weight:400; color:var(--hi); line-height:1; }
+.ch-en { font-family:var(--sf); font-size:11px; font-weight:400; color:var(--mid); margin-top:3px; line-height:1.2; }
+.ch-t  { font-family:var(--sf); font-size:11px; font-weight:500; color:var(--lo); margin-top:5px; }
+.chp   { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.am .chp{background:#3EA864;} .sh .chp{background:#4880D0;} .la .chp{background:#C09028;}
+.ch .chp{background:#9060C0;} .ka .chp{background:#C03838;} .ud .chp{background:#28B09A;} .ro .chp{background:#C84830;}
+
+/* Premium strip */
+.prm { margin:4px 14px 14px; background:var(--gold-lo); border:1px solid var(--gold-bd); border-radius:13px; padding:13px 14px; display:flex; align-items:center; gap:11px; }
+.prm-ico { font-size:20px; }
+.prm-t { font-family:var(--sf); font-size:14px; font-weight:600; color:var(--gold-hi); }
+.prm-s { font-family:var(--sf); font-size:12px; font-weight:400; color:var(--mid); margin-top:2px; }
+.prm-btn { margin-left:auto; background:var(--gold); color:var(--ink); border:none; border-radius:8px; padding:8px 14px; font-family:var(--sf); font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+
+/* Upcoming */
+.upc { padding:0 14px 16px; }
+.uph { display:flex; justify-content:space-between; align-items:center; margin-bottom:11px; }
+.uph-t { font-family:var(--sf); font-size:10px; font-weight:600; color:var(--lo); text-transform:uppercase; letter-spacing:1.4px; }
+.uph-t::before { content:'// '; color:var(--ember); }
+.uph-a { font-family:var(--sf); font-size:13px; font-weight:500; color:var(--ember-hi); cursor:pointer; }
+.upi { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.04); cursor:pointer; }
+.upi:last-child { border-bottom:none; }
+.upi:active { opacity:.7; }
+.upd { width:40px; flex-shrink:0; text-align:center; }
+.updd { font-family:var(--num); font-size:24px; font-style:italic; color:var(--ember-hi); line-height:1; font-weight:300; }
+.updm { font-family:var(--sf); font-size:10px; font-weight:500; color:var(--mid); text-transform:uppercase; letter-spacing:.6px; }
+.updiv { width:1px; height:34px; background:var(--ember-bd); border-radius:1px; flex-shrink:0; }
+.upi-i { flex:1; min-width:0; }
+.upi-g { font-family:var(--gu); font-size:17px; font-weight:400; color:var(--hi); line-height:1; }
+.upi-e { font-family:var(--sf); font-size:13px; font-weight:400; color:var(--mid); margin-top:3px; line-height:1.3; }
+.upi-t { font-family:var(--sf); font-size:11px; font-weight:400; color:var(--gold); margin-top:3px; }
+.upi-cd { font-family:var(--sf); font-size:12px; font-weight:600; color:var(--ember-hi); border:1px solid var(--ember-bd); border-radius:7px; padding:5px 9px; background:var(--ember-lo); flex-shrink:0; }
+
+/* ═══════════════════════════════════════════════════════════
+   TAB 2 — CALENDAR
+   ═══════════════════════════════════════════════════════════ */
+.yr-strip { display:flex; gap:6px; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.04); overflow-x:auto; scrollbar-width:none; }
+.yr-strip::-webkit-scrollbar { display:none; }
+.yr { font-family:var(--sf); font-size:12px; font-weight:500; color:var(--mid); background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); border-radius:20px; padding:5px 14px; white-space:nowrap; cursor:pointer; transition:all var(--t); }
+.yr.act { background:var(--ember-lo); border-color:var(--ember-bd); color:var(--ember-hi); }
+
+.ms { padding:10px 14px 0; }
+.ml { font-family:var(--gu); font-size:16px; font-weight:500; color:var(--hi); margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,.04); display:flex; justify-content:space-between; align-items:baseline; }
+.ml-e { font-family:var(--sf); font-size:11px; font-weight:400; color:var(--mid); }
+.mwd { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px; }
+.mwd .wd { font-size:10px; }
+.mdays { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:12px; }
+.mc { aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:8px; cursor:pointer; }
+.mc:not(.me):active { background:rgba(255,255,255,.05); }
+.mc.me { pointer-events:none; }
+.mc.mt { background:var(--ember); box-shadow:0 2px 8px rgba(191,68,10,.3); }
+.mc.mt .mcg { color:#fff; } .mc.mt .mcd { background:#fff; }
+.mcg { font-family:var(--gu); font-size:14px; font-weight:400; color:var(--hi); line-height:1; }
+.mc.ms2 .mcg { color:var(--ember-hi); }
+.mc.mf .mcg { color:var(--gold-hi); }
+.mcd { width:3px; height:3px; border-radius:50%; background:var(--ember); margin-top:1px; }
+
+.cds { margin:0 14px 14px; background:var(--s1); border:1px solid rgba(255,255,255,.07); border-radius:16px; overflow:hidden; }
+.cdsh { padding:13px 16px; background:linear-gradient(140deg,rgba(191,68,10,.14),rgba(191,68,10,.03)); border-bottom:1px solid rgba(191,68,10,.14); display:flex; justify-content:space-between; align-items:center; }
+.cds-d { font-family:var(--num); font-size:24px; font-style:italic; color:var(--hi); font-weight:300; }
+.cds-s { font-family:var(--sf); font-size:12px; color:var(--mid); margin-top:3px; }
+.cds-b { font-family:var(--sf); font-size:9px; font-weight:700; color:#fff; background:var(--ember); padding:4px 9px; border-radius:6px; text-transform:uppercase; white-space:nowrap; }
+.cdsb { padding:11px 14px; }
+.cdsr { display:flex; gap:5px; margin-bottom:7px; }
+.cdsc { flex:1; background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.05); border-radius:8px; padding:7px 9px; text-align:center; }
+.cdsc-k { font-family:var(--sf); font-size:9px; font-weight:500; color:var(--lo); text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px; }
+.cdsc-g { font-family:var(--gu); font-size:14px; font-weight:400; color:var(--ember-hi); }
+.cdsc-e { font-family:var(--sf); font-size:10px; color:var(--mid); margin-top:1px; }
+.cdsf { background:var(--gold-lo); border:1px solid var(--gold-bd); border-radius:9px; padding:9px 11px; display:flex; gap:9px; align-items:center; }
+.cdsf-i { font-size:20px; }
+.cdsf-g { font-family:var(--gu); font-size:15px; font-weight:500; color:var(--hi); }
+.cdsf-e { font-family:var(--sf); font-size:11px; color:var(--gold-hi); margin-top:2px; }
+
+.cl { display:flex; gap:16px; padding:0 14px 14px; flex-wrap:wrap; }
+.cli { display:flex; align-items:center; gap:5px; }
+.clid { width:6px; height:6px; border-radius:50%; }
+.cll { font-family:var(--sf); font-size:10px; color:var(--mid); }
+
+/* ═══════════════════════════════════════════════════════════
+   TAB 3 — FESTIVALS
+   ═══════════════════════════════════════════════════════════ */
+.srch { margin:12px 14px 0; background:var(--s2); border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:11px 14px; display:flex; align-items:center; gap:10px; }
+.srch-ico { font-size:15px; color:var(--lo); }
+.srch-ph { font-family:var(--sf); font-size:14px; color:var(--lo); }
+
+.fchips { display:flex; gap:6px; padding:12px 14px; overflow-x:auto; scrollbar-width:none; }
+.fchips::-webkit-scrollbar { display:none; }
+.fchip { font-family:var(--sf); font-size:12px; font-weight:500; color:var(--mid); background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:20px; padding:5px 13px; white-space:nowrap; cursor:pointer; transition:all var(--t); -webkit-user-select:none; user-select:none; }
+.fchip:active,.fchip.act { background:var(--ember-lo); border-color:var(--ember-bd); color:var(--ember-hi); }
+
+.fup { padding:0 14px 14px; }
+.fbc { background:var(--s1); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:16px; margin-bottom:10px; position:relative; overflow:hidden; cursor:pointer; }
+.fbc:active { opacity:.82; }
+.fbc-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+.fbc-ico { font-size:36px; line-height:1; }
+.fbc-m { text-align:right; }
+.fbc-date { font-family:var(--sf); font-size:12px; font-weight:500; color:var(--mid); }
+.fbc-cd { font-family:var(--sf); font-size:11px; font-weight:600; color:var(--ember-hi); background:var(--ember-lo); border:1px solid var(--ember-bd); border-radius:6px; padding:3px 8px; margin-top:4px; display:inline-block; }
+.fbc-gu { font-family:var(--gu); font-size:22px; font-weight:500; color:var(--hi); line-height:1.2; }
+.fbc-en { font-family:var(--sf); font-size:13px; font-weight:500; color:var(--gold-hi); margin-top:3px; }
+.fbc-tithi { font-family:var(--sf); font-size:11px; color:var(--mid); margin-top:4px; }
+.fbc-desc { font-family:var(--sf); font-size:12px; color:var(--mid); margin-top:8px; line-height:1.6; border-top:1px solid rgba(255,255,255,.05); padding-top:8px; }
+
+.fmg { padding:0 14px 8px; }
+.fmgl { margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,.04); }
+.fmgl-g { font-family:var(--gu); font-size:15px; font-weight:500; color:var(--gold-hi); }
+.fmgl-e { font-family:var(--sf); font-size:11px; color:var(--lo); margin-top:1px; }
+.fr { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.04); cursor:pointer; }
+.fr:last-child { border-bottom:none; }
+.fr:active { opacity:.72; }
+.fr-ico { font-size:22px; width:32px; text-align:center; flex-shrink:0; }
+.fr-inf { flex:1; }
+.fr-g { font-family:var(--gu); font-size:16px; font-weight:400; color:var(--hi); }
+.fr-e { font-family:var(--sf); font-size:12px; color:var(--mid); margin-top:2px; }
+.fr-r { text-align:right; }
+.fr-d { font-family:var(--sf); font-size:12px; font-weight:500; color:var(--hi); }
+.fr-t { font-family:var(--sf); font-size:10px; color:var(--lo); margin-top:2px; }
+.tag { font-family:var(--sf); font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:2px 7px; border-radius:4px; margin-top:4px; display:inline-block; }
+.tag.major { background:rgba(191,68,10,.12); color:var(--ember-hi); }
+.tag.vrat  { background:var(--gold-lo); color:var(--gold-hi); }
+.tag.gu    { background:rgba(46,138,80,.10); color:var(--green); }
+
+/* ═══════════════════════════════════════════════════════════
+   TAB 4 — BEST TIMES
+   ═══════════════════════════════════════════════════════════ */
+.evs { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.04); overflow-x:auto; scrollbar-width:none; }
+.evs::-webkit-scrollbar { display:none; }
+.evp { display:flex; gap:6px; }
+.ep { display:flex; flex-direction:column; align-items:center; gap:4px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:10px 10px; min-width:64px; cursor:pointer; transition:all var(--t); white-space:nowrap; }
+.ep:active,.ep.act { background:var(--ember-lo); border-color:var(--ember-bd); }
+.ep-i { font-size:20px; }
+.ep-l { font-family:var(--sf); font-size:10px; font-weight:500; color:var(--mid); text-align:center; }
+.ep.act .ep-l { color:var(--ember-hi); }
+
+.na { margin:12px 14px; background:linear-gradient(135deg,rgba(46,138,80,.12),rgba(46,138,80,.04)); border:1px solid var(--green-bd); border-radius:16px; padding:14px 16px; display:flex; align-items:center; gap:14px; }
+.na-d { text-align:center; min-width:48px; }
+.na-dy { font-family:var(--num); font-size:30px; font-style:italic; color:var(--green); line-height:1; font-weight:300; }
+.na-mo { font-family:var(--sf); font-size:11px; font-weight:500; color:rgba(46,138,80,.7); text-transform:uppercase; letter-spacing:.5px; }
+.na-i { flex:1; }
+.na-tag { font-family:var(--sf); font-size:9px; font-weight:700; color:var(--green); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+.na-g { font-family:var(--gu); font-size:17px; font-weight:500; color:var(--hi); }
+.na-e { font-family:var(--sf); font-size:12px; color:rgba(46,138,80,.9); margin-top:2px; }
+.na-t { font-family:var(--sf); font-size:11px; color:var(--mid); margin-top:3px; }
+.na-arr { font-size:18px; color:var(--green); opacity:.6; }
+
+.btch { padding:0 14px 12px; }
+.btcf { display:grid; grid-template-columns:1fr; gap:5px; }
+.cfi { border-radius:10px; padding:11px 14px; display:flex; align-items:center; gap:12px; border:1px solid transparent; cursor:pointer; }
+.cfi:active { opacity:.75; }
+.cfi.am2{background:rgba(40,152,88,.08);border-color:rgba(40,152,88,.16);}
+.cfi.sh2{background:rgba(48,120,210,.08);border-color:rgba(48,120,210,.16);}
+.cfi.la2{background:rgba(192,148,28,.08);border-color:rgba(192,148,28,.16);}
+.cfi.ch2{background:rgba(130,72,192,.08);border-color:rgba(130,72,192,.16);}
+.cfi.ka2{background:rgba(176,44,44,.08);border-color:rgba(176,44,44,.16);}
+.cfi.ud2{background:rgba(24,168,148,.08);border-color:rgba(24,168,148,.16);}
+.cfi.ro2{background:rgba(188,72,44,.08);border-color:rgba(188,72,44,.16);}
+.cfp{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.am2 .cfp{background:#3EA864;}.sh2 .cfp{background:#4880D0;}.la2 .cfp{background:#C09028;}
+.ch2 .cfp{background:#9060C0;}.ka2 .cfp{background:#C03838;}.ud2 .cfp{background:#28B09A;}.ro2 .cfp{background:#C84830;}
+.cfl { flex:1; }
+.cfl-g { font-family:var(--gu); font-size:17px; font-weight:400; color:var(--hi); }
+.cfl-e { font-family:var(--sf); font-size:11px; color:var(--mid); margin-top:2px; }
+.cfr { text-align:right; }
+.cfr-t { font-family:var(--sf); font-size:13px; font-weight:600; color:var(--hi); letter-spacing:-.2px; }
+.st-now  { font-family:var(--sf); font-size:10px; font-weight:600; background:rgba(40,152,88,.15); color:#3EA864; padding:2px 7px; border-radius:4px; margin-top:3px; display:inline-block; }
+.st-next { font-family:var(--sf); font-size:10px; color:var(--mid); margin-top:3px; display:inline-block; }
+.st-done { font-family:var(--sf); font-size:10px; color:var(--lo); margin-top:3px; display:inline-block; }
+
+.btwarn { padding:0 14px 12px; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.wc { background:var(--danger-lo); border:1px solid rgba(184,48,48,.18); border-radius:10px; padding:10px 12px; }
+.wc-t { font-family:var(--sf); font-size:11px; font-weight:600; color:var(--danger); }
+.wc-s { font-family:var(--sf); font-size:10px; color:rgba(184,48,48,.6); margin-top:1px; }
+.wc-v { font-family:var(--sf); font-size:14px; font-weight:700; color:#D04040; margin-top:4px; letter-spacing:-.2px; }
+
+/* ═══════════════════════════════════════════════════════════
+   TAB 5 — MORE
+   ═══════════════════════════════════════════════════════════ */
+.more-body { padding:14px; }
+
+.profile-card { background:var(--s1); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:16px; margin-bottom:16px; display:flex; align-items:center; gap:14px; }
+.pav { width:52px; height:52px; border-radius:50%; background:linear-gradient(135deg,var(--ember),var(--gold)); display:flex; align-items:center; justify-content:center; font-family:var(--gu); font-size:22px; font-weight:500; color:#fff; flex-shrink:0; }
+.pname { font-family:var(--sf); font-size:16px; font-weight:600; color:var(--hi); }
+.ploc  { font-family:var(--sf); font-size:12px; color:var(--mid); margin-top:3px; }
+.pedit { margin-left:auto; font-family:var(--sf); font-size:12px; font-weight:500; color:var(--ember-hi); background:var(--ember-lo); border:1px solid var(--ember-bd); border-radius:8px; padding:6px 12px; cursor:pointer; }
+
+.sg { margin-bottom:16px; }
+.sgl { font-family:var(--sf); font-size:11px; font-weight:600; color:var(--lo); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:8px; padding-left:2px; }
+.sc2 { background:var(--s1); border:1px solid rgba(255,255,255,.06); border-radius:14px; overflow:hidden; }
+.sr { display:flex; align-items:center; gap:12px; padding:13px 14px; border-bottom:1px solid rgba(255,255,255,.04); cursor:pointer; }
+.sr:active { background:rgba(255,255,255,.03); }
+.sr:last-child { border-bottom:none; }
+.sr-ico { font-size:18px; width:28px; text-align:center; flex-shrink:0; }
+.sr-i { flex:1; }
+.sr-t { font-family:var(--sf); font-size:14px; font-weight:500; color:var(--hi); }
+.sr-s { font-family:var(--sf); font-size:11px; color:var(--mid); margin-top:2px; }
+.sr-r { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.sr-v { font-family:var(--sf); font-size:13px; color:var(--mid); }
+.sr-a { color:var(--lo); font-size:14px; }
+.tog { width:44px; height:26px; background:var(--ember); border-radius:13px; position:relative; cursor:pointer; flex-shrink:0; transition:background var(--t); }
+.tog::after { content:''; position:absolute; top:3px; right:3px; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 4px rgba(0,0,0,.3); transition:right var(--t), left var(--t); }
+.tog.off { background:var(--s3); }
+.tog.off::after { right:auto; left:3px; }
+
+.sv-card { background:linear-gradient(135deg,rgba(154,114,32,.12),rgba(154,114,32,.04)); border:1px solid var(--gold-bd); border-radius:14px; padding:16px; margin-bottom:16px; position:relative; overflow:hidden; }
+.sv-card::after { content:'૨૦૮૧'; font-family:var(--gu); position:absolute; right:-8px; bottom:-20px; font-size:72px; font-weight:300; color:rgba(154,114,32,.08); pointer-events:none; line-height:1; }
+.sv-tag { font-family:var(--sf); font-size:10px; font-weight:600; color:var(--gold-hi); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+.sv-g { font-family:var(--gu); font-size:20px; font-weight:500; color:var(--hi); }
+.sv-e { font-family:var(--sf); font-size:12px; color:var(--mid); margin-top:4px; line-height:1.55; }
+
+.abt { background:var(--s1); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:14px; margin-bottom:16px; }
+.abt-t { font-family:var(--gu); font-size:16px; font-weight:500; color:var(--hi); margin-bottom:8px; }
+.abt-b { font-family:var(--sf); font-size:13px; color:var(--mid); line-height:1.65; }
+
+.afooter { display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px 0 8px; }
+.afv { font-family:var(--sf); font-size:12px; color:var(--lo); }
+.aflinks { display:flex; gap:16px; }
+.afl { font-family:var(--sf); font-size:12px; font-weight:500; color:var(--ember-hi); }
+
+/* ═══════════════════════════════════════════════════════════
+   INSTALL BANNER (shows on desktop / first visit)
+   ═══════════════════════════════════════════════════════════ */
+#install-banner {
+  position:fixed; bottom:0; left:0; right:0; z-index:100;
+  background:var(--s1); border-top:1px solid rgba(255,255,255,.08);
+  padding:14px 20px calc(14px + env(safe-area-inset-bottom,0px));
+  display:flex; align-items:center; gap:14px;
+  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  transform:translateY(100%); transition:transform .4s cubic-bezier(.22,1,.36,1);
+}
+#install-banner.show { transform:translateY(0); }
+#install-banner .ib-ico { font-size:32px; flex-shrink:0; }
+#install-banner .ib-text { flex:1; }
+#install-banner .ib-t { font-family:var(--sf); font-size:14px; font-weight:600; color:var(--hi); }
+#install-banner .ib-s { font-family:var(--sf); font-size:12px; color:var(--mid); margin-top:3px; line-height:1.4; }
+#install-banner .ib-close { font-size:20px; color:var(--lo); padding:4px; cursor:pointer; }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE — nice on tablet/desktop too
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width:480px) {
+  #app { border-radius:0; max-width:430px; left:50%; right:auto; transform:translateX(-50%); box-shadow:0 0 0 1px rgba(255,255,255,.04), 0 0 80px rgba(0,0,0,.8); }
+  body { background:#030201; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="scroll">
+
+    <!-- ══════ TAB 1: TODAY ══════ -->
+    <div class="tab active" id="tab-today">
+
+      <!-- Header -->
+      <div class="ph" style="padding:16px 20px 16px;">
+        <div class="ph-row" style="padding-left:14px;margin-bottom:14px;">
+          <div>
+            <div class="ph-gu" style="font-size:30px;">ગુજ. પંચાંગ</div>
+            <div class="ph-en">Daily Hindu calendar · Year 2081</div>
+          </div>
+          <div class="ph-acts">
+            <div class="icon-btn">🔔</div>
+            <div class="icon-btn">⚙</div>
+          </div>
+        </div>
+        <!-- Today card -->
+        <div style="margin-left:14px;background:var(--ember-lo);border:1px solid var(--ember-bd);border-radius:16px;padding:14px 16px;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;position:relative;overflow:hidden;">
+          <div style="position:absolute;right:-6px;bottom:-14px;font-family:var(--gu);font-size:68px;font-weight:300;color:rgba(191,68,10,.07);pointer-events:none;line-height:1;">ૐ</div>
+          <div style="font-family:var(--num);font-size:64px;color:var(--ember-hi);line-height:.9;font-weight:300;font-style:italic;letter-spacing:-2px;min-width:56px;">26</div>
+          <div>
+            <div style="font-family:var(--gu);font-size:17px;font-weight:500;color:var(--hi);line-height:1.4;">ચૈત્ર વદ ૧૩ · ત્રયોદશી</div>
+            <div style="font-family:var(--sf);font-size:13px;color:var(--mid);margin-top:5px;">Thursday, 26 March · Waning moon, day 13</div>
+            <div style="font-family:var(--sf);font-size:12px;color:var(--gold-hi);margin-top:5px;">☀ Rises 6:38 · Star of deep waters</div>
+          </div>
+          <div style="background:var(--ember);color:#fff;font-family:var(--sf);font-size:10px;font-weight:600;letter-spacing:.4px;padding:6px 10px;border-radius:7px;writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);align-self:stretch;display:flex;align-items:center;justify-content:center;text-transform:uppercase;">Shiva Fast</div>
+        </div>
+      </div>
+
+      <!-- Panchang strip -->
+      <div class="ps">
+        <div class="pi"><div class="pi-k">Lunar</div><div class="pi-g">ત્રયો.</div><div class="pi-e">Day 13 of 30</div></div>
+        <div class="pi"><div class="pi-k">Weekday</div><div class="pi-g">ગુરુ</div><div class="pi-e">Jupiter's day</div></div>
+        <div class="pi"><div class="pi-k">Star</div><div class="pi-g">ઉ.ભા.</div><div class="pi-e">Deep waters</div></div>
+        <div class="pi"><div class="pi-k">Auspice</div><div class="pi-g">સિદ્ધ</div><div class="pi-e">Success</div></div>
+        <div class="pi"><div class="pi-k">Fortnight</div><div class="pi-g">કૃ.પ.</div><div class="pi-e">Dark half</div></div>
+      </div>
+
+      <!-- Month nav -->
+      <div class="mn">
+        <div class="mn-arr">‹</div>
+        <div class="mn-c">
+          <div class="mn-g">ચૈત્ર – વૈશાખ ૨૦૮૧</div>
+          <div class="mn-e">March – April 2025 · Spring season</div>
+        </div>
+        <div class="mn-arr">›</div>
+      </div>
+
+      <!-- Calendar grid -->
+      <div class="cg">
+        <div class="wds"><div class="wd sun">S</div><div class="wd">M</div><div class="wd">T</div><div class="wd">W</div><div class="wd">T</div><div class="wd">F</div><div class="wd">S</div></div>
+        <div class="dys">
+          <div class="dc e"></div><div class="dc e"></div><div class="dc e"></div><div class="dc e"></div><div class="dc e"></div><div class="dc e"></div>
+          <div class="dc"><div class="dg">૧</div><div class="ds">ચૈ.૨</div></div>
+          <div class="dc sc"><div class="dg">૨</div><div class="ds">૩</div></div><div class="dc"><div class="dg">૩</div><div class="ds">૪</div></div><div class="dc"><div class="dg">૪</div><div class="ds">૫</div></div><div class="dc"><div class="dg">૫</div><div class="ds">૬</div></div><div class="dc"><div class="dg">૬</div><div class="ds">૭</div></div>
+          <div class="dc fst"><div class="dg">૭</div><div class="ds">૮</div><div class="dd"></div></div>
+          <div class="dc"><div class="dg">૮</div><div class="ds">૯</div></div>
+          <div class="dc sc"><div class="dg">૯</div><div class="ds">૧૦</div></div><div class="dc"><div class="dg">૧૦</div><div class="ds">૧૧</div></div><div class="dc"><div class="dg">૧૧</div><div class="ds">૧૨</div></div><div class="dc"><div class="dg">૧૨</div><div class="ds">૧૩</div></div><div class="dc"><div class="dg">૧૩</div><div class="ds">૧૪</div></div>
+          <div class="dc fst"><div class="dg">૧૪</div><div class="ds">પૂ.મ.</div><div class="dd"></div></div>
+          <div class="dc"><div class="dg">૧૫</div><div class="ds">સ.૧</div></div>
+          <div class="dc sc"><div class="dg">૧૬</div><div class="ds">૨</div></div><div class="dc"><div class="dg">૧૭</div><div class="ds">૩</div></div><div class="dc"><div class="dg">૧૮</div><div class="ds">૪</div></div><div class="dc"><div class="dg">૧૯</div><div class="ds">૫</div></div><div class="dc"><div class="dg">૨૦</div><div class="ds">૬</div></div>
+          <div class="dc fst"><div class="dg">૨૧</div><div class="ds">૭</div><div class="dd"></div></div>
+          <div class="dc"><div class="dg">૨૨</div><div class="ds">૮</div></div>
+          <div class="dc sc"><div class="dg">૨૩</div><div class="ds">૯</div></div><div class="dc"><div class="dg">૨૪</div><div class="ds">૧૦</div></div><div class="dc"><div class="dg">૨૫</div><div class="ds">૧૧</div></div>
+          <div class="dc tod"><div class="dg">૨૬</div><div class="ds">૧૩</div><div class="dd"></div></div>
+          <div class="dc sel"><div class="dg">૨૭</div><div class="ds">૧૪</div></div>
+          <div class="dc fst"><div class="dg">૨૮</div><div class="ds">અ.મ.</div><div class="dd"></div></div>
+          <div class="dc"><div class="dg">૨૯</div><div class="ds">વ.૧</div></div>
+          <div class="dc sc"><div class="dg">૩૦</div><div class="ds">૨</div></div><div class="dc"><div class="dg">૩૧</div><div class="ds">૩</div></div>
+          <div class="dc e"></div><div class="dc e"></div><div class="dc e"></div><div class="dc e"></div><div class="dc e"></div>
+        </div>
+      </div>
+
+      <!-- Day detail -->
+      <div class="ddc">
+        <div class="ddc-h">
+          <div><div class="ddc-dt">26 March 2025</div><div class="ddc-sub">Thursday · Waning fortnight · Spring month</div></div>
+          <div class="ddc-r"><div class="ddc-sam">સં. ૨૦૮૧</div><div class="ddc-tgu">ત્રયોદશી</div><div class="ddc-ten">13th lunar day</div></div>
+        </div>
+        <div class="ddc-b">
+          <div class="smr">
+            <div class="smb"><div class="smi">☀</div><div><div class="smk">Sunrise · Sunset</div><div class="smv">6:38 — 6:52 pm</div></div></div>
+            <div class="smb"><div class="smi">🌙</div><div><div class="smk">Moon rises at</div><div class="smv">5:12 am</div></div></div>
+          </div>
+          <div class="sl">Daily Panchang</div>
+          <div class="pdg">
+            <div class="pdi"><div class="pdk">Lunar Day</div><div class="pdg-gu">ત્રયોદશી</div><div class="pdg-en">Day 13 · good for fasting</div></div>
+            <div class="pdi"><div class="pdk">Ruling Star</div><div class="pdg-gu">ઉ. ભાદ્ર.</div><div class="pdg-en">Depth, patience</div></div>
+            <div class="pdi"><div class="pdk">Day's Auspice</div><div class="pdg-gu">સિદ્ધ</div><div class="pdg-en">Achievements</div></div>
+            <div class="pdi"><div class="pdk">Half-Period</div><div class="pdg-gu">બવ</div><div class="pdg-en">Active · travel</div></div>
+            <div class="pdi"><div class="pdk">Moon Phase</div><div class="pdg-gu">કૃષ્ણ</div><div class="pdg-en">Waning · dark</div></div>
+            <div class="pdi"><div class="pdk">Hindu Month</div><div class="pdg-gu">ચૈત્ર</div><div class="pdg-en">1st · New Year eve</div></div>
+          </div>
+          <div class="rb"><div><div class="rk">⚠ Inauspicious Window</div><div class="rs">Rahu Kaal — avoid new starts</div><div class="rt">1:30 – 3:00 pm</div></div><div class="rp">Skip</div></div>
+          <div class="sl">Today's Occasion</div>
+          <div class="fc"><div class="fc-ico">🕉</div><div><div class="fc-gu">પ્રદોષ વ્રત</div><div class="fc-en">Shiva's Twilight Fast</div><div class="fc-desc">A monthly fast honouring Lord Shiva on the 13th lunar day. Worship at dusk — when the sky turns amber — dissolves karmic burdens and grants wishes.</div></div></div>
+        </div>
+      </div>
+
+      <!-- Choghadiya -->
+      <div class="chs">
+        <div class="sl">Auspicious Hours Today</div>
+        <div class="chg">
+          <div class="chi am"><div><div class="ch-gu">અમૃત</div><div class="ch-en">Best for new starts</div><div class="ch-t">6:38 – 8:12 am</div></div><div class="chp"></div></div>
+          <div class="chi ka"><div><div class="ch-gu">કાળ</div><div class="ch-en">Avoid</div><div class="ch-t">8:12 – 9:46 am</div></div><div class="chp"></div></div>
+          <div class="chi sh"><div><div class="ch-gu">શુભ</div><div class="ch-en">Auspicious work</div><div class="ch-t">9:46 – 11:20 am</div></div><div class="chp"></div></div>
+          <div class="chi ro"><div><div class="ch-gu">રોગ</div><div class="ch-en">Caution</div><div class="ch-t">11:20 – 12:54 pm</div></div><div class="chp"></div></div>
+          <div class="chi ud"><div><div class="ch-gu">ઉદ્યોગ</div><div class="ch-en">Work &amp; effort</div><div class="ch-t">12:54 – 2:28 pm</div></div><div class="chp"></div></div>
+          <div class="chi la"><div><div class="ch-gu">લાભ</div><div class="ch-en">Deals &amp; profit</div><div class="ch-t">2:28 – 4:02 pm</div></div><div class="chp"></div></div>
+          <div class="chi ch"><div><div class="ch-gu">ચર</div><div class="ch-en">Travel &amp; change</div><div class="ch-t">4:02 – 5:37 pm</div></div><div class="chp"></div></div>
+          <div class="chi am"><div><div class="ch-gu">અમૃત</div><div class="ch-en">Evening rituals</div><div class="ch-t">5:37 – 6:52 pm</div></div><div class="chp"></div></div>
+        </div>
+      </div>
+
+      <div class="prm"><div class="prm-ico">✦</div><div><div class="prm-t">Full Panchang Access</div><div class="prm-s">Best times for weddings, travel &amp; business</div></div><button class="prm-btn">Try Free</button></div>
+
+      <!-- Upcoming -->
+      <div class="upc">
+        <div class="uph"><div class="uph-t">Coming Up</div><div class="uph-a">See all →</div></div>
+        <div class="upi"><div class="upd"><div class="updd">28</div><div class="updm">Mar</div></div><div class="updiv"></div><div class="upi-i"><div class="upi-g">ચૈત્ર અમાસ</div><div class="upi-e">New Moon · Honour ancestors</div><div class="upi-t">Waning 30th · darkest night</div></div><div class="upi-cd">2d</div></div>
+        <div class="upi"><div class="upd"><div class="updd">30</div><div class="updm">Mar</div></div><div class="updiv"></div><div class="upi-i"><div class="upi-g">ગુડી પડવો</div><div class="upi-e">Gujarati New Year · 2082 begins</div><div class="upi-t">Waxing 1st · first day of spring</div></div><div class="upi-cd">4d</div></div>
+        <div class="upi"><div class="upd"><div class="updd">6</div><div class="updm">Apr</div></div><div class="updiv"></div><div class="upi-i"><div class="upi-g">રામ નવમી</div><div class="upi-e">Lord Ram's Birthday</div><div class="upi-t">Waxing 9th · midday birth moment</div></div><div class="upi-cd">11d</div></div>
+        <div class="upi"><div class="upd"><div class="updd">13</div><div class="updm">Apr</div></div><div class="updiv"></div><div class="upi-i"><div class="upi-g">હનુમાન જયંતિ</div><div class="upi-e">Hanuman's Birthday · Full Moon</div><div class="upi-t">Full Moon · brightest night of Chaitra</div></div><div class="upi-cd">18d</div></div>
+      </div>
+    </div><!-- /today -->
+
+    <!-- ══════ TAB 2: CALENDAR ══════ -->
+    <div class="tab" id="tab-calendar">
+      <div class="ph">
+        <div class="ph-row">
+          <div><div class="ph-gu">કૅલેન્ડર</div><div class="ph-en">Vikram Samvat 2081 · Monthly view</div></div>
+          <div class="ph-acts"><div class="icon-btn">📅</div></div>
+        </div>
+      </div>
+      <div class="yr-strip">
+        <div class="yr">2079</div><div class="yr">2080</div><div class="yr act">2081</div><div class="yr">2082</div><div class="yr">2083</div>
+      </div>
+      <!-- March -->
+      <div class="ms">
+        <div class="ml"><span style="font-family:var(--gu)">ચૈત્ર</span><span class="ml-e">March 2025</span></div>
+        <div class="mwd"><div class="wd sun">S</div><div class="wd">M</div><div class="wd">T</div><div class="wd">W</div><div class="wd">T</div><div class="wd">F</div><div class="wd">S</div></div>
+        <div class="mdays">
+          <div class="mc me"></div><div class="mc me"></div><div class="mc me"></div><div class="mc me"></div><div class="mc me"></div><div class="mc me"></div>
+          <div class="mc"><div class="mcg">૧</div></div>
+          <div class="mc ms2"><div class="mcg">૨</div></div><div class="mc"><div class="mcg">૩</div></div><div class="mc"><div class="mcg">૪</div></div><div class="mc"><div class="mcg">૫</div></div><div class="mc"><div class="mcg">૬</div></div>
+          <div class="mc mf"><div class="mcg">૭</div><div class="mcd"></div></div>
+          <div class="mc"><div class="mcg">૮</div></div>
+          <div class="mc ms2"><div class="mcg">૯</div></div><div class="mc"><div class="mcg">૧૦</div></div><div class="mc"><div class="mcg">૧૧</div></div><div class="mc"><div class="mcg">૧૨</div></div><div class="mc"><div class="mcg">૧૩</div></div>
+          <div class="mc mf"><div class="mcg">૧૪</div><div class="mcd"></div></div>
+          <div class="mc"><div class="mcg">૧૫</div></div>
+          <div class="mc ms2"><div class="mcg">૧૬</div></div><div class="mc"><div class="mcg">૧૭</div></div><div class="mc"><div class="mcg">૧૮</div></div><div class="mc"><div class="mcg">૧૯</div></div><div class="mc"><div class="mcg">૨૦</div></div>
+          <div class="mc mf"><div class="mcg">૨૧</div><div class="mcd"></div></div>
+          <div class="mc"><div class="mcg">૨૨</div></div>
+          <div class="mc ms2"><div class="mcg">૨૩</div></div><div class="mc"><div class="mcg">૨૪</div></div><div class="mc"><div class="mcg">૨૫</div></div>
+          <div class="mc mt"><div class="mcg">૨૬</div><div class="mcd"></div></div>
+          <div class="mc"><div class="mcg">૨૭</div></div>
+          <div class="mc mf"><div class="mcg">૨૮</div><div class="mcd"></div></div>
+          <div class="mc"><div class="mcg">૨૯</div></div>
+          <div class="mc ms2"><div class="mcg">૩૦</div></div>
+          <div class="mc mf"><div class="mcg">૩૧</div><div class="mcd"></div></div>
+          <div class="mc me"></div><div class="mc me"></div><div class="mc me"></div><div class="mc me"></div><div class="mc me"></div>
+        </div>
+      </div>
+      <!-- Selected day sheet -->
+      <div class="cds">
+        <div class="cdsh">
+          <div><div class="cds-d">26 March 2025</div><div class="cds-s">Thursday · Waning moon · Chaitra</div></div>
+          <div class="cds-b">Shiva Fast</div>
+        </div>
+        <div class="cdsb">
+          <div class="cdsr">
+            <div class="cdsc"><div class="cdsc-k">Lunar Day</div><div class="cdsc-g">ત્રયોદશી</div><div class="cdsc-e">Day 13</div></div>
+            <div class="cdsc"><div class="cdsc-k">Star</div><div class="cdsc-g">ઉ.ભાદ્ર.</div><div class="cdsc-e">Deep waters</div></div>
+            <div class="cdsc"><div class="cdsc-k">Auspice</div><div class="cdsc-g">સિદ્ધ</div><div class="cdsc-e">Success</div></div>
+          </div>
+          <div class="cdsf"><div class="cdsf-i">🕉</div><div><div class="cdsf-g">પ્રદોષ વ્રત</div><div class="cdsf-e">Shiva's Twilight Fast</div></div></div>
+        </div>
+      </div>
+      <!-- April -->
+      <div class="ms">
+        <div class="ml"><span style="font-family:var(--gu)">વૈશાખ</span><span class="ml-e">April 2025</span></div>
+        <div class="mwd"><div class="wd sun">S</div><div class="wd">M</div><div class="wd">T</div><div class="wd">W</div><div class="wd">T</div><div class="wd">F</div><div class="wd">S</div></div>
+        <div class="mdays">
+          <div class="mc me"></div>
+          <div class="mc"><div class="mcg">૧</div></div><div class="mc"><div class="mcg">૨</div></div><div class="mc"><div class="mcg">૩</div></div><div class="mc"><div class="mcg">૪</div></div><div class="mc"><div class="mcg">૫</div></div><div class="mc"><div class="mcg">૬</div></div>
+          <div class="mc ms2"><div class="mcg">૭</div></div><div class="mc"><div class="mcg">૮</div></div><div class="mc"><div class="mcg">૯</div></div><div class="mc"><div class="mcg">૧૦</div></div><div class="mc"><div class="mcg">૧૧</div></div><div class="mc"><div class="mcg">૧૨</div></div>
+          <div class="mc mf"><div class="mcg">૧૩</div><div class="mcd"></div></div>
+          <div class="mc ms2"><div class="mcg">૧૪</div></div><div class="mc"><div class="mcg">૧૫</div></div><div class="mc"><div class="mcg">૧૬</div></div><div class="mc"><div class="mcg">૧૭</div></div><div class="mc"><div class="mcg">૧૮</div></div><div class="mc"><div class="mcg">૧૯</div></div><div class="mc"><div class="mcg">૨૦</div></div>
+          <div class="mc ms2"><div class="mcg">૨૧</div></div><div class="mc"><div class="mcg">૨૨</div></div>
+          <div class="mc mf"><div class="mcg">૨૩</div><div class="mcd"></div></div>
+          <div class="mc"><div class="mcg">૨૪</div></div><div class="mc"><div class="mcg">૨૫</div></div><div class="mc"><div class="mcg">૨૬</div></div><div class="mc"><div class="mcg">૨૭</div></div>
+          <div class="mc ms2"><div class="mcg">૨૮</div></div><div class="mc"><div class="mcg">૨૯</div></div><div class="mc"><div class="mcg">૩૦</div></div>
+          <div class="mc me"></div><div class="mc me"></div><div class="mc me"></div><div class="mc me"></div><div class="mc me"></div>
+        </div>
+      </div>
+      <div class="cl">
+        <div class="cli"><div class="clid" style="background:var(--ember)"></div><span class="cll">Today</span></div>
+        <div class="cli"><div class="clid" style="background:var(--ember);width:4px;height:4px;border-radius:50%"></div><span class="cll">Festival day</span></div>
+        <div class="cli"><div class="clid" style="background:var(--gold-hi)"></div><span class="cll">Auspicious date</span></div>
+      </div>
+    </div><!-- /calendar -->
+
+    <!-- ══════ TAB 3: FESTIVALS ══════ -->
+    <div class="tab" id="tab-festivals">
+      <div class="ph">
+        <div class="ph-row">
+          <div><div class="ph-gu">તહેવારો</div><div class="ph-en">Hindu &amp; Gujarati festivals · 2025</div></div>
+          <div class="ph-acts"><div class="icon-btn">🔖</div></div>
+        </div>
+      </div>
+      <div class="srch"><div class="srch-ico">🔍</div><div class="srch-ph">Search festivals…</div></div>
+      <div class="fchips">
+        <div class="fchip act">All</div><div class="fchip">Gujarati</div><div class="fchip">Major</div><div class="fchip">Vrat &amp; Fast</div><div class="fchip">Ekadashi</div><div class="fchip">Full Moon</div><div class="fchip">New Moon</div>
+      </div>
+      <div class="fup">
+        <div class="sl">Next 30 Days</div>
+        <div class="fbc">
+          <div style="position:absolute;right:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--ember-hi),var(--ember));border-radius:0 16px 16px 0;"></div>
+          <div class="fbc-top"><div class="fbc-ico">🌑</div><div class="fbc-m"><div class="fbc-date">Fri 28 Mar</div><div class="fbc-cd">2 days</div></div></div>
+          <div class="fbc-gu">ચૈત્ર અમાસ</div>
+          <div class="fbc-en">New Moon · Ancestor Remembrance</div>
+          <div class="fbc-tithi">Waning 30th · Chaitra · Darkest night of the month</div>
+          <div class="fbc-desc">The new moon of Chaitra is dedicated to honouring departed ancestors through offerings of water and sesame seeds. Fasting and charitable giving are especially meritorious today.</div>
+        </div>
+        <div class="fbc">
+          <div style="position:absolute;right:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--gold-hi),var(--gold));border-radius:0 16px 16px 0;"></div>
+          <div class="fbc-top"><div class="fbc-ico">🪔</div><div class="fbc-m"><div class="fbc-date">Sun 30 Mar</div><div class="fbc-cd">4 days</div></div></div>
+          <div class="fbc-gu">ગુડી પડવો · બેસતું વર્ષ</div>
+          <div class="fbc-en">Gujarati New Year · Year 2082 begins</div>
+          <div class="fbc-tithi">Waxing 1st · Vaishakh · First dawn of the new year</div>
+          <div class="fbc-desc">The most important day in the Gujarati calendar. Families rise before sunrise, perform puja, exchange sweets and blessings. New account books (chopda) are opened for business.</div>
+        </div>
+      </div>
+      <div class="fmg">
+        <div class="sl">April 2025 · Vaishakh</div>
+        <div class="fr"><div class="fr-ico">🙏</div><div class="fr-inf"><div class="fr-g">રામ નવમી</div><div class="fr-e">Lord Ram's Birthday · midday celebration</div></div><div class="fr-r"><div class="fr-d">6 Apr</div><div class="fr-t">Waxing 9th</div><div class="tag major">Major</div></div></div>
+        <div class="fr"><div class="fr-ico">🌕</div><div class="fr-inf"><div class="fr-g">હનુમાન જયંતિ</div><div class="fr-e">Hanuman's Birthday · Full Moon night</div></div><div class="fr-r"><div class="fr-d">13 Apr</div><div class="fr-t">Full Moon</div><div class="tag major">Major</div></div></div>
+        <div class="fr"><div class="fr-ico">⭐</div><div class="fr-inf"><div class="fr-g">પ્રદોષ વ્રત</div><div class="fr-e">Shiva's Twilight Fast · fortnightly</div></div><div class="fr-r"><div class="fr-d">10 Apr</div><div class="fr-t">Waxing 13th</div><div class="tag vrat">Vrat</div></div></div>
+        <div class="fr"><div class="fr-ico">🌿</div><div class="fr-inf"><div class="fr-g">એકાદશી</div><div class="fr-e">Ekadashi · fasting day for Vishnu</div></div><div class="fr-r"><div class="fr-d">8 Apr</div><div class="fr-t">Waxing 11th</div><div class="tag vrat">Vrat</div></div></div>
+        <div class="fr"><div class="fr-ico">🎏</div><div class="fr-inf"><div class="fr-g">પ્રારંભ ઉત્સવ</div><div class="fr-e">Labh Pancham · auspicious business start</div></div><div class="fr-r"><div class="fr-d">3 Apr</div><div class="fr-t">Waxing 5th</div><div class="tag gu">Gujarati</div></div></div>
+      </div>
+      <div class="fmg">
+        <div class="sl">May 2025 · Jyeshtha</div>
+        <div class="fr"><div class="fr-ico">🪷</div><div class="fr-inf"><div class="fr-g">અક્ષય તૃતીયા</div><div class="fr-e">Eternal Third · most auspicious day of year</div></div><div class="fr-r"><div class="fr-d">1 May</div><div class="fr-t">Waxing 3rd</div><div class="tag major">Major</div></div></div>
+        <div class="fr"><div class="fr-ico">🌸</div><div class="fr-inf"><div class="fr-g">બુદ્ધ પૂર્ણિમા</div><div class="fr-e">Buddha's Birthday &amp; Enlightenment</div></div><div class="fr-r"><div class="fr-d">12 May</div><div class="fr-t">Full Moon</div><div class="tag major">Major</div></div></div>
+        <div class="fr"><div class="fr-ico">🌊</div><div class="fr-inf"><div class="fr-g">ગંગા દશહરા</div><div class="fr-e">River Ganga's descent to earth</div></div><div class="fr-r"><div class="fr-d">8 Jun</div><div class="fr-t">Waxing 10th</div><div class="tag major">Major</div></div></div>
+      </div>
+    </div><!-- /festivals -->
+
+    <!-- ══════ TAB 4: BEST TIMES ══════ -->
+    <div class="tab" id="tab-times">
+      <div class="ph">
+        <div class="ph-row">
+          <div><div class="ph-gu">શુભ સમય</div><div class="ph-en">Auspicious times · 26 March 2025</div></div>
+          <div class="ph-acts"><div class="icon-btn">ℹ</div></div>
+        </div>
+      </div>
+      <div class="evs">
+        <div class="evp">
+          <div class="ep act"><div class="ep-i">⏰</div><div class="ep-l">Today's hours</div></div>
+          <div class="ep"><div class="ep-i">💍</div><div class="ep-l">Marriage</div></div>
+          <div class="ep"><div class="ep-i">✈️</div><div class="ep-l">Travel</div></div>
+          <div class="ep"><div class="ep-i">🏠</div><div class="ep-l">New home</div></div>
+          <div class="ep"><div class="ep-i">🚗</div><div class="ep-l">Vehicle</div></div>
+          <div class="ep"><div class="ep-i">💼</div><div class="ep-l">Business</div></div>
+        </div>
+      </div>
+      <div class="na">
+        <div class="na-d"><div class="na-dy">30</div><div class="na-mo">Mar</div></div>
+        <div class="na-i"><div class="na-tag">Next auspicious day</div><div class="na-g">ગુડી પડવો</div><div class="na-e">Gujarati New Year · highly auspicious</div><div class="na-t">Waxing 1st · 4 days away</div></div>
+        <div class="na-arr">›</div>
+      </div>
+      <div class="btch">
+        <div class="sl">Today's Time Blocks</div>
+        <div class="btcf">
+          <div class="cfi am2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">અમૃત</div><div class="cfl-e">Blessed · best for all new beginnings</div></div><div class="cfr"><div class="cfr-t">6:38 – 8:12</div><span class="st-done">Done</span></div></div>
+          <div class="cfi ka2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">કાળ</div><div class="cfl-e">Avoid — inauspicious for new work</div></div><div class="cfr"><div class="cfr-t">8:12 – 9:46</div><span class="st-done">Done</span></div></div>
+          <div class="cfi sh2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">શુભ</div><div class="cfl-e">Good — auspicious for important work</div></div><div class="cfr"><div class="cfr-t">9:46 – 11:20</div><span class="st-done">Done</span></div></div>
+          <div class="cfi ro2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">રોગ</div><div class="cfl-e">Caution — health &amp; legal matters</div></div><div class="cfr"><div class="cfr-t">11:20 – 12:54</div><span class="st-done">Done</span></div></div>
+          <div class="cfi ud2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">ઉદ્યોગ</div><div class="cfl-e">Industry — work, efforts &amp; repairs</div></div><div class="cfr"><div class="cfr-t">12:54 – 2:28</div><span class="st-now">Now</span></div></div>
+          <div class="cfi la2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">લાભ</div><div class="cfl-e">Profit — deals, investments &amp; trade</div></div><div class="cfr"><div class="cfr-t">2:28 – 4:02</div><span class="st-next">Next</span></div></div>
+          <div class="cfi ch2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">ચર</div><div class="cfl-e">Moving — travel &amp; change of place</div></div><div class="cfr"><div class="cfr-t">4:02 – 5:37</div><span class="st-next">Next</span></div></div>
+          <div class="cfi am2"><div class="cfp"></div><div class="cfl"><div class="cfl-g">અમૃત</div><div class="cfl-e">Blessed — prayers &amp; evening rituals</div></div><div class="cfr"><div class="cfr-t">5:37 – 6:52</div><span class="st-next">Next</span></div></div>
+        </div>
+      </div>
+      <div class="btwarn">
+        <div class="wc"><div class="wc-t">⚠ Rahu Kaal</div><div class="wc-s">Avoid new starts</div><div class="wc-v">1:30 – 3:00 pm</div></div>
+        <div class="wc"><div class="wc-t">⚠ Gulika Kaal</div><div class="wc-s">Malefic period</div><div class="wc-v">7:56 – 9:30 am</div></div>
+      </div>
+      <div class="prm"><div class="prm-ico">✦</div><div><div class="prm-t">Muhurtha Finder</div><div class="prm-s">Find auspicious dates for marriage &amp; Griha Pravesh</div></div><button class="prm-btn">Unlock</button></div>
+    </div><!-- /times -->
+
+    <!-- ══════ TAB 5: MORE ══════ -->
+    <div class="tab" id="tab-more">
+      <div class="ph">
+        <div class="ph-row">
+          <div><div class="ph-gu">વધુ</div><div class="ph-en">Settings &amp; preferences</div></div>
+        </div>
+      </div>
+      <div class="more-body">
+        <div class="profile-card">
+          <div class="pav">અ</div>
+          <div><div class="pname">Arjun Patel</div><div class="ploc">📍 Ahmedabad, Gujarat</div></div>
+          <button class="pedit">Edit</button>
+        </div>
+        <div class="sg">
+          <div class="sgl">Preferences</div>
+          <div class="sc2">
+            <div class="sr"><div class="sr-ico">🌐</div><div class="sr-i"><div class="sr-t">Language</div><div class="sr-s">Script shown throughout the app</div></div><div class="sr-r"><div class="sr-v">Gujarati + English</div><div class="sr-a">›</div></div></div>
+            <div class="sr"><div class="sr-ico">📍</div><div class="sr-i"><div class="sr-t">Location</div><div class="sr-s">For accurate sunrise &amp; sunset times</div></div><div class="sr-r"><div class="sr-v">Ahmedabad</div><div class="sr-a">›</div></div></div>
+            <div class="sr"><div class="sr-ico">📅</div><div class="sr-i"><div class="sr-t">Week starts on</div><div class="sr-s">First day of the week in calendar</div></div><div class="sr-r"><div class="sr-v">Sunday</div><div class="sr-a">›</div></div></div>
+          </div>
+        </div>
+        <div class="sg">
+          <div class="sgl">Notifications</div>
+          <div class="sc2">
+            <div class="sr"><div class="sr-ico">🎉</div><div class="sr-i"><div class="sr-t">Major festivals</div><div class="sr-s">Diwali, Navratri, Holi &amp; more</div></div><div class="sr-r"><div class="tog" onclick="this.classList.toggle('off')"></div></div></div>
+            <div class="sr"><div class="sr-ico">🌗</div><div class="sr-i"><div class="sr-t">Ekadashi reminders</div><div class="sr-s">Day before &amp; morning of</div></div><div class="sr-r"><div class="tog" onclick="this.classList.toggle('off')"></div></div></div>
+            <div class="sr"><div class="sr-ico">🌑</div><div class="sr-i"><div class="sr-t">New &amp; Full Moon</div><div class="sr-s">Amavas &amp; Purnima alerts</div></div><div class="sr-r"><div class="tog off" onclick="this.classList.toggle('off')"></div></div></div>
+            <div class="sr"><div class="sr-ico">⏰</div><div class="sr-i"><div class="sr-t">Reminder timing</div><div class="sr-s">How early to notify</div></div><div class="sr-r"><div class="sr-v">1 day before</div><div class="sr-a">›</div></div></div>
+          </div>
+        </div>
+        <div class="sv-card">
+          <div class="sv-tag">Current Year</div>
+          <div class="sv-g">વિક્રમ સંવત ૨૦૮૧</div>
+          <div class="sv-e">Vikram Samvat 2081 · Krodhana year · Began 9 Apr 2024 on Gujarati New Year (Bestu Varas). Ends 29 Mar 2025.</div>
+        </div>
+        <div class="abt">
+          <div class="abt-t">About the Panchang</div>
+          <div class="abt-b">A panchang (five limbs) tracks five daily elements: Tithi (lunar day), Vara (weekday), Nakshatra (ruling star), Yoga (auspice), and Karana (half-period). Together they reveal the quality of each moment — auspicious for new beginnings, caution for ventures, or rest for reflection. This app uses the Drik Panchang calculation system, the most widely used across Gujarat and Maharashtra.</div>
+        </div>
+        <div class="sg">
+          <div class="sgl">App</div>
+          <div class="sc2">
+            <div class="sr"><div class="sr-ico">⭐</div><div class="sr-i"><div class="sr-t">Rate the app</div><div class="sr-s">Help others in the community discover it</div></div><div class="sr-r"><div class="sr-a">›</div></div></div>
+            <div class="sr"><div class="sr-ico">💬</div><div class="sr-i"><div class="sr-t">Send feedback</div><div class="sr-s">Report a date error or suggest a feature</div></div><div class="sr-r"><div class="sr-a">›</div></div></div>
+            <div class="sr"><div class="sr-ico">🔒</div><div class="sr-i"><div class="sr-t">Privacy policy</div></div><div class="sr-r"><div class="sr-a">›</div></div></div>
+          </div>
+        </div>
+        <div class="afooter">
+          <div class="afv">ગુજ. પંચાંગ · v1.0</div>
+          <div class="aflinks"><div class="afl">Privacy</div><div class="afl">Terms</div><div class="afl">Credits</div></div>
+        </div>
+      </div>
+    </div><!-- /more -->
+
+  </div><!-- /scroll -->
+
+  <!-- Bottom Nav -->
+  <div id="nav">
+    <div class="bn active" onclick="go('today',this)"><div class="bn-ico">◈</div><div class="bn-lbl">Today</div><div class="bn-dot"></div></div>
+    <div class="bn" onclick="go('calendar',this)"><div class="bn-ico">▦</div><div class="bn-lbl">Calendar</div></div>
+    <div class="bn" onclick="go('festivals',this)"><div class="bn-ico">◉</div><div class="bn-lbl">Festivals</div></div>
+    <div class="bn" onclick="go('times',this)"><div class="bn-ico">◷</div><div class="bn-lbl">Best Times</div></div>
+    <div class="bn" onclick="go('more',this)"><div class="bn-ico">≡</div><div class="bn-lbl">More</div></div>
+  </div>
+</div><!-- /app -->
+
+<!-- Install banner -->
+<div id="install-banner">
+  <div class="ib-ico">🕉</div>
+  <div class="ib-text">
+    <div class="ib-t">Add to Home Screen</div>
+    <div class="ib-s">Tap <strong>Share → Add to Home Screen</strong> in Safari to install as an app</div>
+  </div>
+  <div class="ib-close" onclick="dismissBanner()">✕</div>
+</div>
+
+<script>
+// Tab switching
+function go(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.bn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('scroll').scrollTop = 0;
+}
+
+// Filter chip toggle (Festivals tab)
+document.querySelectorAll('.fchip').forEach(chip => {
+  chip.addEventListener('click', function() {
+    document.querySelectorAll('.fchip').forEach(c => c.classList.remove('act'));
+    this.classList.add('act');
+  });
+});
+
+// Year pill toggle (Calendar tab)
+document.querySelectorAll('.yr').forEach(yr => {
+  yr.addEventListener('click', function() {
+    document.querySelectorAll('.yr').forEach(y => y.classList.remove('act'));
+    this.classList.add('act');
+  });
+});
+
+// Event type pills (Best Times tab)
+document.querySelectorAll('.ep').forEach(ep => {
+  ep.addEventListener('click', function() {
+    document.querySelectorAll('.ep').forEach(e => e.classList.remove('act'));
+    this.classList.add('act');
+  });
+});
+
+// Install banner — show on non-standalone, non-mobile visits
+function dismissBanner() {
+  document.getElementById('install-banner').classList.remove('show');
+  sessionStorage.setItem('banner-dismissed', '1');
+}
+
+window.addEventListener('load', () => {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const dismissed = sessionStorage.getItem('banner-dismissed');
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (!isStandalone && !dismissed && isIOS) {
+    setTimeout(() => document.getElementById('install-banner').classList.add('show'), 2000);
+  }
+});
+</script>
+</body>
+</html>
